@@ -50,6 +50,9 @@ class VehicleDemo : public GlutDemoApplication
 	btRaycastVehicle*	m_vehicle;
 	btCollisionShape*	m_wheelShape;
 
+	btRaycastVehicle*	m_firstVagon;
+	btRaycastVehicle*	m_secondVagon;
+
 	float		m_cameraHeight;
 
 	float	m_minCameraDistance;
