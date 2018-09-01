@@ -297,9 +297,18 @@ btRaycastVehicle* VehicleDemo::createVagon( btRaycastVehicle* parent_vehicle)
 		wheel.m_rollInfluence = 1.0f;
 	}
 	
-	btPoint2PointConstraint* constraint = new btPoint2PointConstraint(*parent, *carChassis, btVector3(0.0f, -parentSizeY * 0.5f, -(parentSizeZ * 0.5f + 0.5f)), btVector3(0.0f, -parentSizeY * 0.5f, parentSizeZ * 0.5f + 0.5f));
-	m_dynamicsWorld->addConstraint(constraint, true);
+	//btPoint2PointConstraint* constraint = new btPoint2PointConstraint(*parent, *carChassis, btVector3(0.0f, 0.0f, -(parentSizeZ * 0.5f + 0.3f)), btVector3(0.0f, 0.0f, parentSizeZ * 0.5f + 0.3f));
 	
+	btVector3 axisA(0.f, 1.f, 0.f);
+	btVector3 axisB(0.f, 1.f, 0.f);
+	btVector3 pivotA(0.0f, 0.0f, -(parentSizeZ * 0.5f + 0.2));
+	btVector3 pivotB(0.0f, 0.0f, parentSizeZ * 0.5f + 0.2f);
+
+	btHingeConstraint* constraint = new btHingeConstraint(*parent, *carChassis, pivotA, pivotB, axisA, axisB);
+	constraint->setLimit(SIMD_PI, -SIMD_PI);
+
+	m_dynamicsWorld->addConstraint(constraint, true);
+
 	return vehicle;
 }
 
