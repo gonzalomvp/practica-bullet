@@ -50,8 +50,9 @@ class VehicleDemo : public GlutDemoApplication
 	btRaycastVehicle*	m_vehicle;
 	btCollisionShape*	m_wheelShape;
 
-	btRaycastVehicle*	m_firstVagon;
-	btRaycastVehicle*	m_secondVagon;
+	btAlignedObjectArray<btRigidBody*> m_vagonChassis;
+	btAlignedObjectArray<btVehicleRaycaster*> m_vagonRayCaster;
+	btAlignedObjectArray<btRaycastVehicle*> m_vagonVehicle;
 
 	float		m_cameraHeight;
 
@@ -79,6 +80,7 @@ class VehicleDemo : public GlutDemoApplication
 	void renderme();
 
 	void initPhysics();
+	void exitPhysics();
 
 	void VehicleDemo::createTower(btScalar posX, btScalar posZ);
 

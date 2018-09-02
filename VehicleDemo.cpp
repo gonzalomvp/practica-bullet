@@ -125,53 +125,8 @@ m_minCameraDistance(3.f),
 
 VehicleDemo::~VehicleDemo()
 {
-		//cleanup in the reverse order of creation/initialization
-
-	//remove the rigidbodies from the dynamics world and delete them
-	int i;
-	for (i=m_dynamicsWorld->getNumCollisionObjects()-1; i>=0 ;i--)
-	{
-		btCollisionObject* obj = m_dynamicsWorld->getCollisionObjectArray()[i];
-		btRigidBody* body = btRigidBody::upcast(obj);
-		if (body && body->getMotionState())
-		{
-			delete body->getMotionState();
-		}
-		m_dynamicsWorld->removeCollisionObject( obj );
-		delete obj;
-	}
-
-	//delete collision shapes
-	for (int j=0;j<m_collisionShapes.size();j++)
-	{
-		btCollisionShape* shape = m_collisionShapes[j];
-		delete shape;
-	}
-
-	delete m_indexVertexArrays;
-	delete m_vertices;
-
-	//delete dynamics world
-	delete m_dynamicsWorld;
-
-	delete m_vehicleRayCaster;
-
-	delete m_vehicle;
-
-	delete m_wheelShape;
-
-	//delete solver
-	delete m_constraintSolver;
-
-	//delete broadphase
-	delete m_overlappingPairCache;
-
-	//delete dispatcher
-	delete m_dispatcher;
-
-	delete m_collisionConfiguration;
+	exitPhysics();
 }
-
 
 void VehicleDemo::createTower(btScalar posX, btScalar posZ)
 {
@@ -262,11 +217,13 @@ btRaycastVehicle* VehicleDemo::createVagon( btRaycastVehicle* parent_vehicle)
 	tr.setIdentity();
 	tr.setOrigin(parentPos + btVector3(0.0f, 0, -(parentSizeZ + 0.5f)));
 
-	btRigidBody* carChassis = localCreateRigidBody(100, tr, compound);//chassisShape);
-														   //m_carChassis->setDamping(0.2,0.2);
+	btRigidBody* carChassis = localCreateRigidBody(100, tr, compound);
+	m_vagonChassis.push_back(carChassis);
 	
 	btVehicleRaycaster* vehicleRayCaster = new btDefaultVehicleRaycaster(m_dynamicsWorld);
+	m_vagonRayCaster.push_back(vehicleRayCaster);
 	btRaycastVehicle* vehicle = new btRaycastVehicle(m_tuning, carChassis, vehicleRayCaster);
+	m_vagonVehicle.push_back(vehicle);
 
 	//never deactivate the vehicle
 	carChassis->setActivationState(DISABLE_DEACTIVATION);
@@ -321,7 +278,7 @@ void VehicleDemo::initPhysics()
 #endif
 
 	btCollisionShape* groundShape = new btBoxShape(btVector3(500,3,500));
-	m_collisionShapes.push_back(groundShape);
+	//m_collisionShapes.push_back(groundShape);
 	m_collisionConfiguration = new btDefaultCollisionConfiguration();
 	m_dispatcher = new btCollisionDispatcher(m_collisionConfiguration);
 	btVector3 worldMin(-1000,-1000,-1000);
@@ -432,8 +389,8 @@ tr.setIdentity();
 		}
 	}
 
-	m_firstVagon = createVagon(m_vehicle);
-	m_secondVagon= createVagon(m_firstVagon);
+	createVagon(m_vehicle);
+	createVagon(m_vagonVehicle[0]);
 
 	for (size_t i = 0; i < 10; ++i)
 	{
@@ -444,6 +401,75 @@ tr.setIdentity();
 
 }
 
+void VehicleDemo::exitPhysics()
+{
+	//cleanup in the reverse order of creation/initialization
+	int i;
+
+	//removed/delete constraints
+	for (i = m_dynamicsWorld->getNumConstraints() - 1; i >= 0; i--)
+	{
+		btTypedConstraint* constraint = m_dynamicsWorld->getConstraint(i);
+		m_dynamicsWorld->removeConstraint(constraint);
+		delete constraint;
+	}
+
+	//remove the rigidbodies from the dynamics world and delete them
+
+	for (i = m_dynamicsWorld->getNumCollisionObjects() - 1; i >= 0; i--)
+	{
+		btCollisionObject* obj = m_dynamicsWorld->getCollisionObjectArray()[i];
+		btRigidBody* body = btRigidBody::upcast(obj);
+		if (body && body->getMotionState())
+		{
+			delete body->getMotionState();
+		}
+		m_dynamicsWorld->removeCollisionObject(obj);
+		delete obj;
+	}
+	m_vagonChassis.clear();
+
+	//delete collision shapes
+	for (int j = 0; j<m_collisionShapes.size(); j++)
+	{
+		btCollisionShape* shape = m_collisionShapes[j];
+		delete shape;
+	}
+	m_collisionShapes.clear();
+
+	delete m_indexVertexArrays;
+	delete m_vertices;
+
+	//delete dynamics world
+	delete m_dynamicsWorld;
+
+	delete m_vehicleRayCaster;
+	for (i = 0; i < m_vagonRayCaster.size(); i++)
+	{
+		delete m_vagonRayCaster[i];
+	}
+	m_vagonRayCaster.clear();
+
+	delete m_vehicle;
+	for (i = 0; i < m_vagonVehicle.size(); i++)
+	{
+		delete m_vagonVehicle[i];
+	}
+	m_vagonVehicle.clear();
+
+	delete m_wheelShape;
+
+	//delete solver
+	delete m_constraintSolver;
+
+	//delete broadphase
+	delete m_overlappingPairCache;
+
+	//delete dispatcher
+	delete m_dispatcher;
+
+	delete m_collisionConfiguration;
+}
 
 //to be implemented by the demo
 void VehicleDemo::renderme()
@@ -452,7 +478,7 @@ void VehicleDemo::renderme()
 	updateCamera();
 
 	btScalar m[16];
-	int i;
+	int i, j;
 
 
 	btVector3 wheelColor(1,0,0);
@@ -471,24 +497,17 @@ void VehicleDemo::renderme()
 		m_shapeDrawer->drawOpenGL(m,m_wheelShape,wheelColor,getDebugMode(),worldBoundsMin,worldBoundsMax);
 	}
 
-	for (i = 0; i< m_firstVagon->getNumWheels(); i++)
+	for (i = 0; i < m_vagonVehicle.size(); i++)
 	{
-		//synchronize the wheels with the (interpolated) chassis worldtransform
-		m_firstVagon->updateWheelTransform(i, true);
-		//draw wheels (cylinders)
-		m_firstVagon->getWheelInfo(i).m_worldTransform.getOpenGLMatrix(m);
-		m_shapeDrawer->drawOpenGL(m, m_wheelShape, wheelColor, getDebugMode(), worldBoundsMin, worldBoundsMax);
+		for (j = 0; j < m_vagonVehicle[i]->getNumWheels(); j++)
+		{
+			//synchronize the wheels with the (interpolated) chassis worldtransform
+			m_vagonVehicle[i]->updateWheelTransform(j, true);
+			//draw wheels (cylinders)
+			m_vagonVehicle[i]->getWheelInfo(j).m_worldTransform.getOpenGLMatrix(m);
+			m_shapeDrawer->drawOpenGL(m, m_wheelShape, wheelColor, getDebugMode(), worldBoundsMin, worldBoundsMax);
+		}
 	}
-
-	for (i = 0; i< m_secondVagon->getNumWheels(); i++)
-	{
-		//synchronize the wheels with the (interpolated) chassis worldtransform
-		m_secondVagon->updateWheelTransform(i, true);
-		//draw wheels (cylinders)
-		m_secondVagon->getWheelInfo(i).m_worldTransform.getOpenGLMatrix(m);
-		m_shapeDrawer->drawOpenGL(m, m_wheelShape, wheelColor, getDebugMode(), worldBoundsMin, worldBoundsMax);
-	}
-
 
 	DemoApplication::renderme();
 
@@ -611,20 +630,45 @@ void VehicleDemo::displayCallback(void)
 void VehicleDemo::clientResetScene()
 {
 	gVehicleSteering = 0.f;
-	m_carChassis->setCenterOfMassTransform(btTransform::getIdentity());
-	m_carChassis->setLinearVelocity(btVector3(0,0,0));
-	m_carChassis->setAngularVelocity(btVector3(0,0,0));
-	m_dynamicsWorld->getBroadphase()->getOverlappingPairCache()->cleanProxyFromPairs(m_carChassis->getBroadphaseHandle(),getDynamicsWorld()->getDispatcher());
-	if (m_vehicle)
-	{
-		m_vehicle->resetSuspension();
-		for (int i=0;i<m_vehicle->getNumWheels();i++)
-		{
-			//synchronize the wheels with the (interpolated) chassis worldtransform
-			m_vehicle->updateWheelTransform(i,true);
-		}
-	}
+	exitPhysics();
+	initPhysics();
+	//gVehicleSteering = 0.f;
+	//m_carChassis->setCenterOfMassTransform(btTransform::getIdentity());
+	//m_carChassis->setLinearVelocity(btVector3(0,0,0));
+	//m_carChassis->setAngularVelocity(btVector3(0,0,0));
+	//m_dynamicsWorld->getBroadphase()->getOverlappingPairCache()->cleanProxyFromPairs(m_carChassis->getBroadphaseHandle(),getDynamicsWorld()->getDispatcher());
+	//if (m_vehicle)
+	//{
+	//	m_vehicle->resetSuspension();
+	//	for (int i=0;i<m_vehicle->getNumWheels();i++)
+	//	{
+	//		//synchronize the wheels with the (interpolated) chassis worldtransform
+	//		m_vehicle->updateWheelTransform(i,true);
+	//	}
+	//}
 
+	//for (int i = 0; i < m_vagonVehicle.size(); i++)
+	//{
+	//	btRaycastVehicle* vagon = m_vagonVehicle[i];
+	//	if (vagon)
+	//	{
+	//		btRigidBody* chassis = m_vagonChassis[i];
+	//		if (chassis)
+	//		{
+	//			chassis->setCenterOfMassTransform(btTransform::getIdentity());
+	//			chassis->setLinearVelocity(btVector3(0, 0, 0));
+	//			chassis->setAngularVelocity(btVector3(0, 0, 0));
+	//			m_dynamicsWorld->getBroadphase()->getOverlappingPairCache()->cleanProxyFromPairs(chassis->getBroadphaseHandle(), getDynamicsWorld()->getDispatcher());
+	//		}
+
+	//		vagon->resetSuspension();
+	//		for (int j = 0; j<vagon->getNumWheels(); j++)
+	//		{
+	//			//synchronize the wheels with the (interpolated) chassis worldtransform
+	//			vagon->updateWheelTransform(j, true);
+	//		}
+	//	}
+	//}
 }
 
 void VehicleDemo::specialKeyboardUp(int key, int x, int y)
