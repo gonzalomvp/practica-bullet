@@ -49,6 +49,7 @@ class VehicleDemo : public GlutDemoApplication
 	btVehicleRaycaster*	m_vehicleRayCaster;
 	btRaycastVehicle*	m_vehicle;
 	btCollisionShape*	m_wheelShape;
+	btCollisionShape*	m_boxShape;
 
 	btAlignedObjectArray<btRigidBody*> m_vagonChassis;
 	btAlignedObjectArray<btVehicleRaycaster*> m_vagonRayCaster;

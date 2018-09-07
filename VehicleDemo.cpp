@@ -120,6 +120,7 @@ m_minCameraDistance(3.f),
 {
 	m_vehicle = 0;
 	m_wheelShape = 0;
+	m_boxShape = 0;
 	m_cameraPosition = btVector3(45, 45, 45);
 }
 
@@ -138,16 +139,19 @@ void VehicleDemo::createTower(btScalar posX, btScalar posZ)
 	btTransform startTransform;
 	startTransform.setIdentity();
 
+	btScalar	mass(1.f);
+	bool isDynamic = (mass != 0.f);
+
+	btVector3 localInertia(0, 0, 0);
+	if (isDynamic)
+		m_boxShape->calculateLocalInertia(mass, localInertia);
+
 	//esta es la posicion de la torre en el terreno
 	float start_x = posX - ARRAY_SIZE_X / 2;
 	float start_y = START_POS_Y;
 	float start_z = posZ - ARRAY_SIZE_Z / 2;
 
-	btBoxShape* colShape = new btBoxShape(btVector3(SCALING * 1, SCALING * 1, SCALING * 1));
-	m_collisionShapes.push_back(colShape);
-
-	int towerFloors = MIN_TOWER_FLOORS + UnitRand() * (MAX_TOWER_FLOORS - MIN_TOWER_FLOORS);
-
+	int towerFloors = MIN_TOWER_FLOORS + UnitRand() * (MAX_TOWER_FLOORS - MIN_TOWER_FLOORS + 1);
 	for (int k = 0; k < towerFloors; k++)
 	{
 		for (int i = 0; i < ARRAY_SIZE_X; i++)
@@ -159,22 +163,13 @@ void VehicleDemo::createTower(btScalar posX, btScalar posZ)
 					btScalar(2.0*k + start_y),
 					btScalar(2.0*j + start_z)));
 
-				btScalar	mass(1.f);
-				bool isDynamic = (mass != 0.f);
-
-				btVector3 localInertia(0, 0, 0);
-				if (isDynamic)
-					colShape->calculateLocalInertia(mass, localInertia);
-
 				//using motionstate is recommended, it provides interpolation capabilities, and only synchronizes 'active' objects
 				btDefaultMotionState* myMotionState = new btDefaultMotionState(startTransform);
-				btRigidBody::btRigidBodyConstructionInfo rbInfo(mass, myMotionState, colShape, localInertia);
+				btRigidBody::btRigidBodyConstructionInfo rbInfo(mass, myMotionState, m_boxShape, localInertia);
 
 				rbInfo.m_restitution = 1.0f;
 
 				btRigidBody* body = new btRigidBody(rbInfo);
-
-
 				m_dynamicsWorld->addRigidBody(body);
 			}
 		}
@@ -392,6 +387,10 @@ tr.setIdentity();
 	createVagon(m_vehicle);
 	createVagon(m_vagonVehicle[0]);
 
+	// Re-using the same collision is better for memory usage and performance
+	m_boxShape = new btBoxShape(btVector3(SCALING * 1, SCALING * 1, SCALING * 1));
+	m_collisionShapes.push_back(m_boxShape);
+
 	for (size_t i = 0; i < 10; ++i)
 	{
 		createTower(SignedUnitRand() * 100, SignedUnitRand() * 100);
@@ -404,10 +403,9 @@ tr.setIdentity();
 void VehicleDemo::exitPhysics()
 {
 	//cleanup in the reverse order of creation/initialization
-	int i;
 
 	//removed/delete constraints
-	for (i = m_dynamicsWorld->getNumConstraints() - 1; i >= 0; i--)
+	for (int i = m_dynamicsWorld->getNumConstraints() - 1; i >= 0; i--)
 	{
 		btTypedConstraint* constraint = m_dynamicsWorld->getConstraint(i);
 		m_dynamicsWorld->removeConstraint(constraint);
@@ -415,8 +413,7 @@ void VehicleDemo::exitPhysics()
 	}
 
 	//remove the rigidbodies from the dynamics world and delete them
-
-	for (i = m_dynamicsWorld->getNumCollisionObjects() - 1; i >= 0; i--)
+	for (int i = m_dynamicsWorld->getNumCollisionObjects() - 1; i >= 0; i--)
 	{
 		btCollisionObject* obj = m_dynamicsWorld->getCollisionObjectArray()[i];
 		btRigidBody* body = btRigidBody::upcast(obj);
@@ -430,9 +427,9 @@ void VehicleDemo::exitPhysics()
 	m_vagonChassis.clear();
 
 	//delete collision shapes
-	for (int j = 0; j<m_collisionShapes.size(); j++)
+	for (int i = 0; i < m_collisionShapes.size(); i++)
 	{
-		btCollisionShape* shape = m_collisionShapes[j];
+		btCollisionShape* shape = m_collisionShapes[i];
 		delete shape;
 	}
 	m_collisionShapes.clear();
@@ -444,14 +441,14 @@ void VehicleDemo::exitPhysics()
 	delete m_dynamicsWorld;
 
 	delete m_vehicleRayCaster;
-	for (i = 0; i < m_vagonRayCaster.size(); i++)
+	for (int i = 0; i < m_vagonRayCaster.size(); i++)
 	{
 		delete m_vagonRayCaster[i];
 	}
 	m_vagonRayCaster.clear();
 
 	delete m_vehicle;
-	for (i = 0; i < m_vagonVehicle.size(); i++)
+	for (int i = 0; i < m_vagonVehicle.size(); i++)
 	{
 		delete m_vagonVehicle[i];
 	}
@@ -529,10 +526,8 @@ void VehicleDemo::clientMoveAndDisplay()
 
 		wheelIndex = 0;
 		m_vehicle->setSteeringValue(gVehicleSteering,wheelIndex);
-		printf("wheel1: %f\n", m_vehicle->getSteeringValue(wheelIndex));
 		wheelIndex = 1;
 		m_vehicle->setSteeringValue(gVehicleSteering,wheelIndex);
-		printf("wheel1: %f\n", m_vehicle->getSteeringValue(wheelIndex));
 		
 	}
 
