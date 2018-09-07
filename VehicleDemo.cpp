@@ -384,8 +384,11 @@ tr.setIdentity();
 		}
 	}
 
-	createVagon(m_vehicle);
-	createVagon(m_vagonVehicle[0]);
+	btRaycastVehicle* parentVagon = m_vehicle;
+	for (size_t i = 0; i < 2; ++i)
+	{
+		parentVagon = createVagon(parentVagon);
+	}
 
 	// Re-using the same collision is better for memory usage and performance
 	m_boxShape = new btBoxShape(btVector3(SCALING * 1, SCALING * 1, SCALING * 1));
