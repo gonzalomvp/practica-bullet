@@ -210,10 +210,10 @@ btRaycastVehicle* VehicleDemo::createVagon( btRaycastVehicle* parent_vehicle)
 
 	btTransform tr;
 	tr.setIdentity();
-	tr.setOrigin(parentPos + btVector3(0.0f, 0, -(parentSizeZ + 0.5f)));
+	//posicion del vagon con respecto al padre
+	tr.setOrigin(parentPos + btVector3(0.0f, 0.0f, -(parentSizeZ + 0.5f)));
 
 	btRigidBody* carChassis = localCreateRigidBody(100, tr, compound);
-	m_vagonChassis.push_back(carChassis);
 	
 	btVehicleRaycaster* vehicleRayCaster = new btDefaultVehicleRaycaster(m_dynamicsWorld);
 	m_vagonRayCaster.push_back(vehicleRayCaster);
@@ -249,15 +249,17 @@ btRaycastVehicle* VehicleDemo::createVagon( btRaycastVehicle* parent_vehicle)
 		wheel.m_rollInfluence = 1.0f;
 	}
 	
-	//btPoint2PointConstraint* constraint = new btPoint2PointConstraint(*parent, *carChassis, btVector3(0.0f, 0.0f, -(parentSizeZ * 0.5f + 0.3f)), btVector3(0.0f, 0.0f, parentSizeZ * 0.5f + 0.3f));
-	
+	//Comentar para usar una constraint Point2Point en vez de Hinge
 	btVector3 axisA(0.f, 1.f, 0.f);
 	btVector3 axisB(0.f, 1.f, 0.f);
 	btVector3 pivotA(0.0f, 0.0f, -(parentSizeZ * 0.5f + 0.2));
 	btVector3 pivotB(0.0f, 0.0f, parentSizeZ * 0.5f + 0.2f);
-
 	btHingeConstraint* constraint = new btHingeConstraint(*parent, *carChassis, pivotA, pivotB, axisA, axisB);
 	constraint->setLimit(SIMD_PI, -SIMD_PI);
+	//
+
+	//Descomentar para usar una constraint Point2Point en vez de Hinge
+	//btPoint2PointConstraint* constraint = new btPoint2PointConstraint(*parent, *carChassis, btVector3(0.0f, 0.0f, -(parentSizeZ * 0.5f + 0.3f)), btVector3(0.0f, 0.0f, parentSizeZ * 0.5f + 0.3f));
 
 	m_dynamicsWorld->addConstraint(constraint, true);
 
@@ -273,7 +275,7 @@ void VehicleDemo::initPhysics()
 #endif
 
 	btCollisionShape* groundShape = new btBoxShape(btVector3(500,3,500));
-	//m_collisionShapes.push_back(groundShape);
+	m_collisionShapes.push_back(groundShape);
 	m_collisionConfiguration = new btDefaultCollisionConfiguration();
 	m_dispatcher = new btCollisionDispatcher(m_collisionConfiguration);
 	btVector3 worldMin(-1000,-1000,-1000);
@@ -288,7 +290,7 @@ void VehicleDemo::initPhysics()
 	//m_dynamicsWorld->setGravity(btVector3(0,0,0));
 btTransform tr;
 tr.setIdentity();
-	m_collisionShapes.push_back(groundShape);
+	//m_collisionShapes.push_back(groundShape);
 
 	//create ground object
 	localCreateRigidBody(0,tr,groundShape);
@@ -384,11 +386,14 @@ tr.setIdentity();
 		}
 	}
 
+	//Creacion de los vagones
 	btRaycastVehicle* parentVagon = m_vehicle;
 	for (size_t i = 0; i < 2; ++i)
 	{
 		parentVagon = createVagon(parentVagon);
 	}
+
+	//Creacion de las torres
 
 	// Re-using the same collision is better for memory usage and performance
 	m_boxShape = new btBoxShape(btVector3(SCALING * 1, SCALING * 1, SCALING * 1));
@@ -427,7 +432,6 @@ void VehicleDemo::exitPhysics()
 		m_dynamicsWorld->removeCollisionObject(obj);
 		delete obj;
 	}
-	m_vagonChassis.clear();
 
 	//delete collision shapes
 	for (int i = 0; i < m_collisionShapes.size(); i++)
@@ -630,43 +634,6 @@ void VehicleDemo::clientResetScene()
 	gVehicleSteering = 0.f;
 	exitPhysics();
 	initPhysics();
-	//gVehicleSteering = 0.f;
-	//m_carChassis->setCenterOfMassTransform(btTransform::getIdentity());
-	//m_carChassis->setLinearVelocity(btVector3(0,0,0));
-	//m_carChassis->setAngularVelocity(btVector3(0,0,0));
-	//m_dynamicsWorld->getBroadphase()->getOverlappingPairCache()->cleanProxyFromPairs(m_carChassis->getBroadphaseHandle(),getDynamicsWorld()->getDispatcher());
-	//if (m_vehicle)
-	//{
-	//	m_vehicle->resetSuspension();
-	//	for (int i=0;i<m_vehicle->getNumWheels();i++)
-	//	{
-	//		//synchronize the wheels with the (interpolated) chassis worldtransform
-	//		m_vehicle->updateWheelTransform(i,true);
-	//	}
-	//}
-
-	//for (int i = 0; i < m_vagonVehicle.size(); i++)
-	//{
-	//	btRaycastVehicle* vagon = m_vagonVehicle[i];
-	//	if (vagon)
-	//	{
-	//		btRigidBody* chassis = m_vagonChassis[i];
-	//		if (chassis)
-	//		{
-	//			chassis->setCenterOfMassTransform(btTransform::getIdentity());
-	//			chassis->setLinearVelocity(btVector3(0, 0, 0));
-	//			chassis->setAngularVelocity(btVector3(0, 0, 0));
-	//			m_dynamicsWorld->getBroadphase()->getOverlappingPairCache()->cleanProxyFromPairs(chassis->getBroadphaseHandle(), getDynamicsWorld()->getDispatcher());
-	//		}
-
-	//		vagon->resetSuspension();
-	//		for (int j = 0; j<vagon->getNumWheels(); j++)
-	//		{
-	//			//synchronize the wheels with the (interpolated) chassis worldtransform
-	//			vagon->updateWheelTransform(j, true);
-	//		}
-	//	}
-	//}
 }
 
 void VehicleDemo::specialKeyboardUp(int key, int x, int y)
